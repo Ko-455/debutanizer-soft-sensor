@@ -1,0 +1,26 @@
+# Конфиг обучения. Любой ключ можно опустить — возьмётся значение по умолчанию
+# из soft_sensor/config.py. Лишние ключи — ошибка (защита от опечаток).
+
+data:
+  path: data/raw/debutanizer.csv
+  max_missing_fraction: 0.01
+
+features:
+  lags: [1, 2, 3, 4, 5, 6]
+  add_bottom_temperature_mean: true
+
+split:
+  test_fraction: 0.2
+  cv_splits: 5
+
+model:
+  candidates: [ridge, hgb]
+  ridge:
+    alpha: 1.0
+  hgb:
+    max_iter: 300
+    learning_rate: 0.05
+    max_leaf_nodes: 31
+  random_state: 42
+
+artifacts_dir: models

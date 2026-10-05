@@ -1,0 +1,36 @@
+# --- Виртуальное окружение: воспроизводится из poetry.lock, в Git не хранится
+.venv/
+venv/
+env/
+
+# --- Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# --- Инструменты
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.ipynb_checkpoints/
+
+# --- Данные и модели: большие и/или конфиденциальные, храним вне Git (DVC, S3, MLflow)
+data/**
+!data/**/
+!data/**/.gitkeep
+models/**
+!models/.gitkeep
+*.pkl
+*.joblib
+
+# --- Секреты и локальное
+.env
+.env.*
+!.env.example
+.idea/
+.DS_Store

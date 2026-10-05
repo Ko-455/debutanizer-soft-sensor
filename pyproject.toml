@@ -1,0 +1,102 @@
+[project]
+name = "soft-sensor"
+version = "0.1.0"
+description = "Виртуальный анализатор содержания бутана в кубе дебутанизатора"
+authors = [{ name = "KO" }]
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+dependencies = [
+    "numpy (>=2.0,<3.0)",
+    "pandas (>=2.2,<4.0)",
+    "scikit-learn (>=1.5,<2.0)",
+    "joblib (>=1.4)",
+    "pydantic (>=2.7,<3.0)",
+    "pyyaml (>=6.0)",
+    "typer (>=0.12)",
+]
+
+[project.scripts]
+soft-sensor = "soft_sensor.cli:app"
+
+[tool.poetry]
+packages = [{ include = "soft_sensor", from = "src" }]
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^9.0"
+pytest-cov = "^7.0"
+ruff = "^0.16"
+mypy = "^2.0"
+pandas-stubs = ">=2.2"
+types-pyyaml = "^6.0"
+pre-commit = "^4.0"
+
+[tool.poetry.group.notebook]
+optional = true
+
+[tool.poetry.group.notebook.dependencies]
+jupyterlab = "^4.0"
+matplotlib = "^3.9"
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+# ---------------------------------------------------------------- ruff
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "tests"]
+extend-exclude = ["notebooks"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",   # pycodestyle
+    "F",        # pyflakes
+    "I",        # isort
+    "N",        # pep8-naming
+    "UP",       # pyupgrade
+    "B",        # bugbear
+    "SIM",      # simplify
+    "C4",       # comprehensions
+    "PTH",      # pathlib вместо os.path
+    "NPY",      # numpy-specific
+    "PD",       # pandas-vet
+    "D",        # docstrings
+    "S",        # bandit (безопасность)
+    "RUF",
+]
+ignore = [
+    "D105", "D107",  # docstrings для magic-методов и __init__
+    "RUF001", "RUF002", "RUF003",  # кириллица в строках/комментариях — не опечатка
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "S101", "PLR2004"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+# ---------------------------------------------------------------- mypy
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+mypy_path = "src"
+files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["sklearn.*", "joblib.*"]
+ignore_missing_imports = true
+
+# ---------------------------------------------------------------- pytest
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers --cov=soft_sensor --cov-report=term-missing --cov-fail-under=85"
+markers = ["slow: долгие end-to-end тесты"]
+
+[tool.coverage.run]
+branch = true
+source = ["soft_sensor"]

@@ -1,0 +1,7 @@
+# Настройки Poetry уровня проекта — закоммичены, поэтому одинаковы у всех.
+# Окружение создаётся внутри репозитория в ./.venv (в Git не попадает, см. .gitignore):
+# IDE находит интерпретатор сама, а `rm -rf .venv && poetry install`
+# пересоздаёт его бит-в-бит по poetry.lock.
+[virtualenvs]
+in-project = true
+prefer-active-python = true

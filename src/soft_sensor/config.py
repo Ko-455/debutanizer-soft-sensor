@@ -91,6 +91,40 @@ class ModelConfig(_Strict):
         return value
 
 
+class MonitorConfig(_Strict):
+    """Триггер по качеству: когда текущая модель считается деградировавшей."""
+
+    window: PositiveInt = 200
+    """Сколько последних размеченных (лабораторией) точек оценивать."""
+    max_rmse_ratio: float = Field(default=1.5, gt=1.0)
+    """Тревога, если RMSE на окне больше эталонного (из metadata.json) во столько раз."""
+    max_abs_bias: float = Field(default=0.02, gt=0.0)
+    """Тревога, если модель систематически завышает или занижает сильнее этого."""
+
+
+class GateConfig(_Strict):
+    """Проверки качества, которые новая версия обязана пройти перед выкладкой."""
+
+    min_train_samples: PositiveInt = 500
+    max_rmse: float = Field(default=0.05, gt=0.0)
+    min_r2: float = Field(default=0.80, le=1.0)
+    """Санитарный порог: R² зависит от разброса цели в окне и на «спокойном»
+    отрезке занижается, поэтому главный критерий — RMSE, а не R²."""
+    max_abs_bias: float = Field(default=0.02, gt=0.0)
+    max_degradation: float = Field(default=0.02, ge=0.0)
+    """Новая модель может быть хуже текущей по RMSE не более чем на эту долю."""
+    smoke_output_range: tuple[float, float] = (-0.1, 1.1)
+    """Допустимый диапазон прогнозов при пробном запуске после выкладки."""
+
+
+class RetrainConfig(_Strict):
+    """Автоматическое переобучение: триггер, проверки, реестр версий."""
+
+    monitor: MonitorConfig = MonitorConfig()
+    gates: GateConfig = GateConfig()
+    registry_dir: Path = Path("models/registry")
+
+
 class TrainConfig(_Strict):
     """Корневой конфиг обучения."""
 
@@ -98,7 +132,9 @@ class TrainConfig(_Strict):
     features: FeatureConfig = FeatureConfig()
     split: SplitConfig = SplitConfig()
     model: ModelConfig = ModelConfig()
+    retrain: RetrainConfig = RetrainConfig()
     artifacts_dir: Path = Path("models")
+    """Каталог рабочей (production) модели — отсюда её загружает сервис."""
 
 
 def load_config(path: Path) -> TrainConfig:

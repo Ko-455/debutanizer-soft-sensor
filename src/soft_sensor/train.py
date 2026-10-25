@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     import pandas as pd
+    from sklearn.pipeline import Pipeline
 
     from soft_sensor.config import TrainConfig
 
@@ -28,22 +29,33 @@ class TrainingResult:
     metadata: ModelMetadata
 
 
+@dataclass(frozen=True)
+class FittedModel:
+    """Обученная, но ещё не сохранённая модель и данные, на которых её проверяли."""
+
+    pipeline: Pipeline
+    metadata: ModelMetadata
+    test_frame: pd.DataFrame
+    """Тестовый хвост ряда вместе с историей для лагов — на нём же проверяют
+    текущую модель при сравнении «новая против текущей»."""
+    n_train: int
+
+
 def _xy(frame: pd.DataFrame, cfg: TrainConfig) -> tuple[pd.DataFrame, pd.Series]:
     x = build_features(frame, cfg.data.input_columns, cfg.features)
     y = frame.loc[x.index, cfg.data.target_column]
     return x, y
 
 
-def run_training(cfg: TrainConfig) -> TrainingResult:
-    """Обучает модель по конфигу и сохраняет артефакт в ``cfg.artifacts_dir``."""
-    frame = load_dataset(cfg.data.path, cfg.data)
+def fit_model(frame: pd.DataFrame, cfg: TrainConfig) -> FittedModel:
+    """Выбирает и обучает модель на проверенных данных, оценивает на отложенном хвосте."""
     split = time_split(frame, cfg.split.test_fraction)
 
     x_train, y_train = _xy(split.train, cfg)
     # Тест получает хвост истории из train, чтобы первые точки теста
     # имели полные лаги и ни одна лабораторная проба не пропала.
-    test_with_history = frame.iloc[len(split.train) - cfg.features.max_lag :]
-    x_test, y_test = _xy(test_with_history, cfg)
+    test_frame = frame.iloc[len(split.train) - cfg.features.max_lag :]
+    x_test, y_test = _xy(test_frame, cfg)
 
     best, cv_rmse = select_model(x_train, y_train, cfg.model, cfg.split.cv_splits)
     logger.info("Выбрана модель: %s", best)
@@ -51,7 +63,11 @@ def run_training(cfg: TrainConfig) -> TrainingResult:
     pipeline = build_pipeline(best, cfg.model).fit(x_train, y_train)
     test_metrics = Metrics.compute(y_test, pipeline.predict(x_test))
     logger.info(
-        "Тест: RMSE=%.4f MAE=%.4f R2=%.3f", test_metrics.rmse, test_metrics.mae, test_metrics.r2
+        "Тест: RMSE=%.4f MAE=%.4f R2=%.3f bias=%+.4f",
+        test_metrics.rmse,
+        test_metrics.mae,
+        test_metrics.r2,
+        test_metrics.bias,
     )
 
     metadata = ModelMetadata(
@@ -63,5 +79,17 @@ def run_training(cfg: TrainConfig) -> TrainingResult:
         test_metrics=test_metrics,
         cv_rmse=cv_rmse,
     )
-    model_dir = save_artifact(pipeline, metadata, cfg.artifacts_dir)
-    return TrainingResult(model_dir=model_dir, metadata=metadata)
+    return FittedModel(
+        pipeline=pipeline, metadata=metadata, test_frame=test_frame, n_train=len(x_train)
+    )
+
+
+def run_training(cfg: TrainConfig) -> TrainingResult:
+    """Обучает модель по конфигу и сохраняет артефакт в ``cfg.artifacts_dir``.
+
+    Ручной путь без проверок качества и реестра; для эксплуатации
+    используйте :func:`soft_sensor.retrain.run_retrain`.
+    """
+    fitted = fit_model(load_dataset(cfg.data.path, cfg.data), cfg)
+    model_dir = save_artifact(fitted.pipeline, fitted.metadata, cfg.artifacts_dir)
+    return TrainingResult(model_dir=model_dir, metadata=fitted.metadata)

@@ -43,14 +43,17 @@ class Metrics:
     rmse: float
     mae: float
     r2: float
+    bias: float = 0.0
+    """Среднее (прогноз − факт): > 0 — модель завышает."""
 
     @classmethod
     def compute(cls, y_true: pd.Series | np.ndarray, y_pred: np.ndarray) -> Metrics:
-        """Считает RMSE, MAE и R² по факту и прогнозу."""
+        """Считает RMSE, MAE, R² и смещение по факту и прогнозу."""
         return cls(
             rmse=float(np.sqrt(mean_squared_error(y_true, y_pred))),
             mae=float(mean_absolute_error(y_true, y_pred)),
             r2=float(r2_score(y_true, y_pred)),
+            bias=float(np.mean(np.asarray(y_pred) - np.asarray(y_true))),
         )
 
 

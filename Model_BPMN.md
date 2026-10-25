@@ -81,9 +81,9 @@ flowchart TB
 | Проверить входы | `soft_sensor.data.validate_frame` |
 | Построить признаки | `soft_sensor.features.build_features` |
 | Оценка C4 моделью | `soft_sensor.predict.SoftSensor.predict`, CLI `soft-sensor predict` |
-| Переобучить | `soft_sensor.train.run_training`, CLI `soft-sensor train` |
-| Проверить новую версию | метрики в `models/metadata.json`, тесты и CI репозитория |
-| Обмен с историаном и LIMS, мнемосхема, сравнение с анализами по расписанию | Интеграция на стороне предприятия (OPC UA / SQL-коннектор, планировщик); в репозитории не реализовано |
+| Сравнить оценки с анализами | `soft_sensor.retrain.check_drift`, CLI `soft-sensor monitor` |
+| Переобучить, проверить и выложить новую версию | `soft_sensor.retrain.run_retrain`, CLI `soft-sensor retrain`, workflow `retrain.yml`; подробно — [Model_retrain_BPMN.md](Model_retrain_BPMN.md) |
+| Обмен с историаном и LIMS, мнемосхема | Интеграция на стороне предприятия (OPC UA / SQL-коннектор); в репозитории не реализовано |
 
 ## Пояснения к схеме
 

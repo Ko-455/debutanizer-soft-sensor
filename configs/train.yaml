@@ -24,3 +24,18 @@ model:
   random_state: 42
 
 artifacts_dir: models
+
+# Автоматическое переобучение (см. Model_retrain_BPMN.md)
+retrain:
+  monitor:            # триггер по деградации
+    window: 200       # последних анализов для оценки
+    max_rmse_ratio: 1.5
+    max_abs_bias: 0.02
+  gates:              # проверки перед выкладкой
+    min_train_samples: 500
+    max_rmse: 0.05
+    min_r2: 0.80       # санитарный порог, главный критерий — RMSE
+    max_abs_bias: 0.02
+    max_degradation: 0.02   # новая не хуже текущей более чем на 2 % по RMSE
+    smoke_output_range: [-0.1, 1.1]
+  registry_dir: models/registry

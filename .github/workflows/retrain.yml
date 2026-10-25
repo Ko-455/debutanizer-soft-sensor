@@ -1,0 +1,120 @@
+# Автоматическое переобучение модели (схема — Model_retrain_BPMN.md).
+#
+# Демо-режим GitHub Actions: у раннера нет доступа к историану, LIMS и
+# постоянному реестру моделей, поэтому:
+#   * «текущая рабочая модель» восстанавливается на старте прогона;
+#   * «свежие данные» — синтетика со сдвигом режима (имитация дрейфа);
+#   * «деплой» — публикация рабочей модели артефактом прогона.
+# На предприятии эти три шага заменяются выгрузкой из историана/LIMS,
+# MLflow/S3 и копированием на сервер сервиса; команды soft-sensor те же.
+name: Retrain
+
+on:
+  schedule:
+    - cron: "17 3 1 * *"  # плановый триггер: 1-го числа каждого месяца
+  workflow_dispatch:
+    inputs:
+      trigger:
+        description: "Причина запуска"
+        type: choice
+        options: [manual, drift, schedule]
+        default: manual
+      regime_shift:
+        description: "Демо: сдвиг режима процесса в свежих данных (0 — без дрейфа)"
+        default: "0.5"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: retrain  # два переобучения одновременно не запускаются
+  cancel-in-progress: false
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    env:
+      SS: poetry run soft-sensor --log-level WARNING
+      CFG: configs/train.yaml
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install
+        run: |
+          pipx install poetry
+          poetry install --only main --no-interaction
+
+      - name: "0. Демо: восстановить текущую рабочую модель"
+        run: |
+          $SS generate-data --seed 42
+          $SS retrain --trigger initial --config $CFG
+
+      - name: "1. Получить свежие данные"
+        run: >
+          $SS generate-data --seed ${{ github.run_number }}
+          --regime-shift ${{ inputs.regime_shift || '0.5' }}
+
+      - name: "2. Мониторинг: есть ли дрейф"
+        id: monitor
+        shell: bash
+        run: |
+          set +e
+          $SS monitor data/raw/debutanizer.csv --config $CFG | tee monitor.txt
+          code=${PIPESTATUS[0]}
+          set -e
+          case $code in
+            0) echo "drift=false" >> "$GITHUB_OUTPUT" ;;
+            3) echo "drift=true"  >> "$GITHUB_OUTPUT" ;;
+            *) exit $code ;;
+          esac
+
+      - name: "3. Переобучение → проверки → реестр → выкладка"
+        id: retrain
+        shell: bash
+        run: |
+          trigger="${{ inputs.trigger || 'schedule' }}"
+          if [ "${{ steps.monitor.outputs.drift }}" = "true" ]; then trigger=drift; fi
+          echo "Триггер: $trigger"
+          set +e
+          $SS retrain --trigger "$trigger" --config $CFG | tee retrain.txt
+          exit ${PIPESTATUS[0]}  # 2 — отклонена, 4 — откат, 1 — ошибка данных: прогон красный
+
+      - name: Отчёт в сводку прогона
+        if: always()
+        shell: bash
+        run: |
+          latest=$(ls -d models/registry/v* 2>/dev/null | sort | tail -1)
+          {
+            echo "## Переобучение модели"
+            echo '```'
+            cat monitor.txt retrain.txt 2>/dev/null
+            echo '```'
+            if [ -n "$latest" ] && [ -f "$latest/report.json" ]; then
+              echo "### $latest/report.json"
+              echo '```json'
+              cat "$latest/report.json"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Реестр версий и отчёты (для аудита)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-registry-${{ github.run_number }}
+          path: models/registry/
+          retention-days: 90
+
+      - name: "4. Деплой: опубликовать рабочую модель"
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: model-production-${{ github.run_number }}
+          path: |
+            models/model.joblib
+            models/metadata.json
+          retention-days: 90

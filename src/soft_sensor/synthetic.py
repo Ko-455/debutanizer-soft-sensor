@@ -36,12 +36,17 @@ def _ar1(rng: np.random.Generator, n: int, phi: float, sigma: float) -> np.ndarr
     return series
 
 
-def generate_debutanizer(n_samples: int = 2394, seed: int = 42) -> pd.DataFrame:
+def generate_debutanizer(
+    n_samples: int = 2394, seed: int = 42, regime_shift: float = 0.0
+) -> pd.DataFrame:
     """Генерирует ряд «теги колонны → содержание бутана».
 
     Args:
         n_samples: длина ряда (в эталонном датасете 2394 точки).
         seed: зерно генератора для воспроизводимости.
+        regime_shift: относительное изменение влияния температуры 6-й тарелки
+            на качество (0.5 — на 50 % сильнее). Имитирует дрейф процесса:
+            загрязнение тарелок, смену сырья. 0 — номинальный режим.
 
     Returns:
         DataFrame с колонками ``u1..u7`` и ``y``; все значения в [0, 1].
@@ -60,7 +65,7 @@ def generate_debutanizer(n_samples: int = 2394, seed: int = 42) -> pd.DataFrame:
     y = np.zeros(n_samples)
     y[t] = (
         0.3
-        - 0.8 * u5[t - 4]
+        - 0.8 * (1.0 + regime_shift) * u5[t - 4]
         - 0.6 * u6[t - 2]
         + 0.35 * u3[t - 1]
         + 0.9 * u5[t - 4] ** 2

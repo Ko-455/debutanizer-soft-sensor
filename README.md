@@ -27,6 +27,8 @@
   назначение, входы и выходы, метрики, ограничения.
 - [Model_BPMN.md](Model_BPMN.md) — BPMN-схема: место модели в технологическом
   процессе и контур поддержания её точности.
+- [Model_retrain_BPMN.md](Model_retrain_BPMN.md) — BPMN-схема автоматического
+  переобучения: триггеры, проверки качества, реестр версий, деплой и откат.
 
 ## Быстрый старт
 
@@ -47,6 +49,14 @@ poetry run pre-commit install --install-hooks
 poetry run soft-sensor generate-data
 poetry run soft-sensor train --config configs/train.yaml
 poetry run soft-sensor predict data/raw/debutanizer.csv --out data/predictions.csv
+```
+
+Эксплуатация модели:
+
+```bash
+poetry run soft-sensor monitor data/raw/debutanizer.csv   # код 3 — дрейф, нужно переобучение
+poetry run soft-sensor retrain --trigger drift            # обучить, проверить, выложить
+poetry run soft-sensor rollback                           # вернуть предыдущую версию
 ```
 
 ## Виртуальное окружение и Git
@@ -99,6 +109,8 @@ poetry run soft-sensor predict data/raw/debutanizer.csv --out data/predictions.c
 │   ├── model.py              # пайплайны, выбор по CV, метрики, артефакт
 │   ├── train.py              # сценарий обучения
 │   ├── predict.py            # SoftSensor — применение модели
+│   ├── retrain.py            # мониторинг, проверки качества, переобучение
+│   ├── registry.py           # реестр версий, выкладка, откат
 │   └── cli.py                # soft-sensor generate-data | train | predict
 └── tests/                    # pytest, в т.ч. тест на утечку будущего
 ```

@@ -21,6 +21,13 @@
 похожей динамикой; реальный CSV с теми же колонками кладётся в
 `data/raw/debutanizer.csv` без изменений в коде.
 
+## Документация модели
+
+- [model_card.md](model_card.md) — карточка модели по шаблону Google Model Cards:
+  назначение, входы и выходы, метрики, ограничения.
+- [Model_BPMN.md](Model_BPMN.md) — BPMN-схема: место модели в технологическом
+  процессе и контур поддержания её точности.
+
 ## Быстрый старт
 
 Нужны Python 3.11–3.13, [Poetry](https://python-poetry.org/docs/#installation) ≥ 2.0 и `make`.
